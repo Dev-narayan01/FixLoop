@@ -9,6 +9,10 @@ or real complaints.
 
 - Java 21 / Spring Boot 3 API, public health checks, Swagger UI and a
   deny-by-default security configuration.
+- **Student registration, login, rotating refresh tokens, logout, password
+  change and `GET /me`**, with BCrypt password hashing, short-lived HS256 access
+  tokens, per-IP rate limiting and role claims. See
+  [Authentication](#authentication-implemented).
 - Local PostgreSQL 16 and API containers. Flyway applies the existing `V1`
   migration to a **fresh local database**; the original SQL has not been edited.
 - Optional local MinIO and Mailpit containers for future storage/email work,
@@ -17,9 +21,10 @@ or real complaints.
   Its controls are disabled; no credentials are collected.
 - Tests and GitHub Actions configuration for the API, database and Flutter shell.
 
-**Not implemented:** registration, login, JWTs, complaint endpoints, routing,
-workflow, authorization by role/ownership, uploads, notifications, a real API
-client, or a public deployment. The existing tables alone do not enforce all
+**Not implemented:** email verification, admin-created staff accounts,
+complaint endpoints, routing, workflow, ownership checks on complaints
+(there are no complaints yet), uploads, notifications, a real API client, or a
+public deployment. The existing tables alone do not enforce all
 those rules. The starter is not production-ready.
 
 ## Important: exposed database credential
@@ -81,6 +86,54 @@ local data, reset with `docker compose down --volumes`. That command permanently
 deletes the local database volume. Do not use it against a system with data you
 need.
 
+### Authentication (implemented)
+
+The API issues its own tokens; there is no third-party auth service to fail on
+demo day (bible D7).
+
+| Endpoint | Who | Purpose |
+|---|---|---|
+| `POST /api/v1/auth/register` | Public | Create a STUDENT account on an allowed email domain |
+| `POST /api/v1/auth/login` | Public | Exchange email and password for tokens |
+| `POST /api/v1/auth/refresh` | Public (with refresh token) | Rotate the refresh token, issue a new access token |
+| `POST /api/v1/auth/logout` | Any signed-in user | Revoke the presented refresh token |
+| `POST /api/v1/auth/change-password` | Any signed-in user | Change the password and revoke other sessions |
+| `GET /api/v1/me` | Any signed-in user | The caller's account, role and scope |
+
+How it behaves:
+
+- Access tokens live **15 minutes** and carry only the user id, role and scope.
+  They never contain the email address.
+- Refresh tokens live **14 days**, are stored **only as SHA-256 hashes**, and are
+  **rotated on every use**. Presenting a token that was already rotated is
+  treated as theft and revokes every session for that user.
+- Passwords are BCrypt (strength 12), at least 12 characters, and rejected if
+  they are the email address or an obvious default.
+- Login failures are indistinguishable: unknown address, wrong password and
+  disabled account all return the same `401 INVALID_CREDENTIALS`.
+- Login and registration are rate limited per IP; complaint creation will be
+  limited the same way when it exists.
+- Every failure uses one error shape with a `traceId`.
+
+Set these in `.env` for local work:
+
+| Variable | Meaning |
+|---|---|
+| `JWT_SECRET` | Signs access tokens, at least 32 bytes (`openssl rand -hex 32`). Blank means an ephemeral key that changes on restart. |
+| `ALLOWED_EMAIL_DOMAINS` | Comma-separated domains allowed to register students (`bmu.edu.in` by default) |
+| `ALLOWED_WEB_ORIGINS` | Comma-separated browser origins for the Flutter web build |
+| `TRUST_FORWARDED_FOR` | Only `true` behind a trusted reverse proxy |
+
+Two configuration rows can override this without a deployment: set
+`settings.allowed_email_domains` to a comma-separated list, and
+`settings.demo_mode_open_signup` to `true` for demo-day open signup (turn it off
+afterwards).
+
+**Not done yet:** no confirmation email, so `email_verified` stays `false` and
+login is not gated on it; staff, supervisor and admin accounts still have to be
+inserted by hand because the admin endpoints do not exist; there is no password
+reset. Those are tracked in the bible (FR-105, FR-106, FR-107).
+
 ### Optional: synthetic reference data
 
 After the API has started and Flyway has finished, this command inserts a few
@@ -127,6 +180,10 @@ not committed yet. This screen cannot log in or submit complaints.
   `mvn -f apps/api/pom.xml verify`. This also runs the Testcontainers
   integration tests against a **new disposable PostgreSQL 16 container**; they
   fail rather than silently skipping if Docker is unavailable.
+- The identity flows have a Testcontainers integration test
+  (`AuthFlowIT`): register, log in, use the token, rotate the refresh token,
+  detect replay, change the password and log out. It runs during `mvn verify`
+  and in CI.
 - In `apps/mobile`, after the one-time Flutter setup: `flutter analyze` and
   `flutter test`.
 - CI is configured to run these checks, validate Compose, build and smoke-test

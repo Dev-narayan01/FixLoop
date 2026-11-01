@@ -29,3 +29,21 @@ management:
       show-details: never
       probes:
         enabled: true
+
+fixloop:
+  auth:
+    issuer: ${JWT_ISSUER:fixloop}
+    # Access tokens are short-lived; refresh tokens rotate on every use.
+    access-token-ttl: ${ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${REFRESH_TOKEN_TTL:P14D}
+    # No default on purpose. Without it the API logs in users with an
+    # ephemeral key that changes on every restart: fine locally, not deployed.
+    jwt-secret: ${JWT_SECRET:}
+    allowed-email-domains: ${ALLOWED_EMAIL_DOMAINS:bmu.edu.in}
+    registration-enabled: ${REGISTRATION_ENABLED:true}
+    rate-limit-enabled: ${RATE_LIMIT_ENABLED:true}
+    # Only true behind a trusted reverse proxy that sets X-Forwarded-For.
+    trust-forwarded-for: ${TRUST_FORWARDED_FOR:false}
+  web:
+    # Comma-separated origins for the Flutter web build, e.g. https://fixloop.example
+    allowed-origins: ${ALLOWED_WEB_ORIGINS:}
