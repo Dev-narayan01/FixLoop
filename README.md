@@ -134,6 +134,40 @@ login is not gated on it; staff, supervisor and admin accounts still have to be
 inserted by hand because the admin endpoints do not exist; there is no password
 reset. Those are tracked in the bible (FR-105, FR-106, FR-107).
 
+### Test the authentication before you merge
+
+Nothing below needs a GitHub push. Test on a copy of the branch first:
+
+```sh
+git fetch origin
+git switch -c test-auth origin/arena/53e67ffc-fixloop
+```
+
+| Level | What it proves | Needs | Command |
+|---|---|---|---|
+| 1. Compile + unit tests | The code compiles; password rules, token claims and the rate limiter behave | Java 21 + Maven 3.9 | `mvn -f apps/api/pom.xml test` |
+| 2. Container build | The image builds and its unit tests pass | Docker only | `docker compose build api` |
+| 3. Integration test | Register, log in, rotate, replay, log out against a **real disposable PostgreSQL 16** | Java, Maven, Docker | `mvn -f apps/api/pom.xml verify` |
+| 4. Smoke test | The wire contract: status codes, error codes, token rotation | Docker | `docker compose up -d --wait db api` then `bash infra/smoke/auth-smoke.sh` |
+| 5. Manual poke | You want to read the responses yourself | Docker | Swagger UI at <http://localhost:8080/swagger-ui/index.html> |
+
+Notes:
+
+- **Level 1 is the fastest and needs no Docker.** `mvn test` runs the unit
+  tests only; the `*IT` classes run during `verify`.
+- If Maven is not installed, **level 2 is the honest compile check**: the
+  Docker build stage runs `mvn package`, so a compile error fails the build.
+- **Level 4** runs 35 checks, prints PASS/FAIL per step and exits non-zero if
+  anything failed. It creates one throwaway `smoke-*@bmu.edu.in` account and
+  prints the cleanup command (`infra/smoke/cleanup.sql`).
+- Registration is limited to 5 per hour per IP, so running the smoke test
+  repeatedly can return `429`. Wait, or set `RATE_LIMIT_ENABLED=false` in
+  `.env` for the session.
+- These tests create data in your **local** database only. Do not run the
+  smoke script against a deployment that holds real complaints.
+
+If a level fails, the fix belongs on this branch; `main` has not been touched.
+
 ### Optional: synthetic reference data
 
 After the API has started and Flyway has finished, this command inserts a few
@@ -184,6 +218,9 @@ not committed yet. This screen cannot log in or submit complaints.
   (`AuthFlowIT`): register, log in, use the token, rotate the refresh token,
   detect replay, change the password and log out. It runs during `mvn verify`
   and in CI.
+- `bash infra/smoke/auth-smoke.sh` checks the identity endpoints against a
+  running stack and prints PASS/FAIL per step. See
+  [Test the authentication before you merge](#test-the-authentication-before-you-merge).
 - In `apps/mobile`, after the one-time Flutter setup: `flutter analyze` and
   `flutter test`.
 - CI is configured to run these checks, validate Compose, build and smoke-test
