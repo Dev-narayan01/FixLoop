@@ -98,6 +98,7 @@ jobs:
       - run: flutter analyze
       - name: Run Flutter widget tests
         run: |
+          set -o pipefail
           if flutter test --reporter expanded 2>&1 | tee "$RUNNER_TEMP/flutter-test.log"; then
             exit 0
           fi
