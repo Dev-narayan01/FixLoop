@@ -1,0 +1,28 @@
+# Disposable, TLS-enabled database for CI only; never points at Supabase.
+services:
+  ci-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: fixloop_ci
+      POSTGRES_USER: fixloop_ci
+      POSTGRES_PASSWORD: ci-only-password
+    volumes:
+      - type: bind
+        source: ${CI_CERT_DIR:?Set CI_CERT_DIR to the disposable CI certificates}
+        target: /ci-certs
+        read_only: true
+    entrypoint:
+      - bash
+      - -ec
+      - |
+        cp /ci-certs/server.crt /tmp/server.crt
+        cp /ci-certs/server.key /tmp/server.key
+        chown postgres:postgres /tmp/server.crt /tmp/server.key
+        chmod 600 /tmp/server.key
+        exec docker-entrypoint.sh postgres -c ssl=on \
+          -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U fixloop_ci -d fixloop_ci"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
