@@ -50,7 +50,10 @@ public class SecurityConfiguration {
     };
 
     private static final String[] AUTHENTICATED_PATHS = {
-        "/api/v1/me", "/api/v1/auth/change-password"
+        "/api/v1/me", "/api/v1/auth/change-password",
+        // Photograph uploads: a signed-in account only. Reads arrive with the
+        // complaint endpoints, where ownership can be checked.
+        "/api/v1/attachments"
     };
 
     @Bean

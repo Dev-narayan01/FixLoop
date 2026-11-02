@@ -17,6 +17,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** Turns exceptions into the one error shape; never leaks a stack trace. */
@@ -58,6 +61,20 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(HttpServletRequest request) {
         return respond(request, HttpStatus.FORBIDDEN, "FORBIDDEN", "Access is not allowed.", null);
+    }
+
+    /** A photograph over the configured limit is a client problem, not a server one. */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleTooLarge(HttpServletRequest request) {
+        return respond(request, HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE",
+            "That upload is larger than the server accepts.", null);
+    }
+
+    /** A multipart request without the part the endpoint needs. */
+    @ExceptionHandler({MissingServletRequestPartException.class, MultipartException.class})
+    public ResponseEntity<ApiError> handleBrokenUpload(HttpServletRequest request) {
+        return respond(request, HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST",
+            "The upload is incomplete or could not be read.", null);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

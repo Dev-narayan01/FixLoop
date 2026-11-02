@@ -10,6 +10,12 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: false
     clean-disabled: true
+  servlet:
+    multipart:
+      # Slightly above the storage limit so the policy, not the container,
+      # decides what is too large and answers in the project's error shape.
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 server:
   address: 0.0.0.0
@@ -48,3 +54,8 @@ fixloop:
   web:
     # Comma-separated origins for the Flutter web build, e.g. https://fixloop.example
     allowed-origins: ${ALLOWED_WEB_ORIGINS:}
+  storage:
+    # A deployment must point this at a persistent volume: a container's
+    # temporary directory disappears with the container.
+    root: ${ATTACHMENT_STORAGE_DIR:}
+    max-bytes: ${ATTACHMENT_MAX_BYTES:8388608}

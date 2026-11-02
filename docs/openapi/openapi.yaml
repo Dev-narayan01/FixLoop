@@ -241,6 +241,50 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthenticated'
 
+  /api/v1/attachments:
+    post:
+      tags: [Attachments]
+      summary: Upload a complaint photograph
+      description: >-
+        The bytes decide what the file is: only JPEG, PNG and WebP content is
+        stored, and a declared type that contradicts the content is refused.
+        The response carries the storage key and a SHA-256 checksum; the key is
+        attached to a complaint when the complaint endpoints exist. There is no
+        download endpoint yet, because reading a photograph has to be authorised
+        against the complaint it belongs to.
+      operationId: uploadAttachment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG or WebP, at most 8 MB by default
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentResponse'
+        '400':
+          $ref: '#/components/responses/ClientError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -267,8 +311,38 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiError'
+    PayloadTooLarge:
+      description: The upload is larger than the server accepts
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnsupportedMediaType:
+      description: The content is not an accepted photograph format
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
 
   schemas:
+    AttachmentResponse:
+      type: object
+      required: [storageKey, mimeType, sizeBytes, checksumSha256]
+      properties:
+        storageKey:
+          type: string
+          example: 9f/3a/0f8f2c7e-4b1d-4a55-9f23-6c0b8e1d2a44.jpg
+        mimeType:
+          type: string
+          example: image/jpeg
+        sizeBytes:
+          type: integer
+          format: int64
+          example: 184320
+        checksumSha256:
+          type: string
+          example: 9f3a1c8b2d4e6f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708
+
     ApiError:
       type: object
       required: [code, message, traceId]

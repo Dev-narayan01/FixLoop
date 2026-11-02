@@ -134,6 +134,35 @@ login is not gated on it; staff, supervisor and admin accounts still have to be
 inserted by hand because the admin endpoints do not exist; there is no password
 reset. Those are tracked in the bible (FR-105, FR-106, FR-107).
 
+### Attachments (upload implemented)
+
+`POST /api/v1/attachments` accepts one photograph as `multipart/form-data` and
+stores it. A signed-in account is required; a student may upload 30 photographs
+per five minutes.
+
+```bash
+TOKEN=... # from POST /api/v1/auth/login
+curl -s -X POST http://localhost:8080/api/v1/attachments \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/path/to/cracked-wall.jpg"
+# {"storageKey":"9f/3a/....jpg","mimeType":"image/jpeg","sizeBytes":184320,"checksumSha256":"9f3a..."}
+```
+
+The bytes decide what the file is: JPEG, PNG and WebP content is accepted, and a
+declared content type that contradicts the content is refused (415). Anything
+larger than 8 MB by default is refused (413). The response carries the storage
+key and a SHA-256 checksum.
+
+**There is no download endpoint yet.** Reading a photograph has to be authorised
+against the complaint it belongs to, so that arrives with the complaint
+endpoints. Uploaded files are also not yet linked to a row in `attachments`:
+that table requires a `complaint_id`, so the complaint endpoint will call this
+service and insert the row with the returned key and checksum.
+
+Where the bytes go is `ATTACHMENT_STORAGE_DIR` (blank means a temporary
+directory). A deployment must point it at a persistent volume, or photographs
+disappear when the container restarts.
+
 ### Test the authentication before you merge
 
 Nothing below needs a GitHub push. Test on a copy of the branch first:

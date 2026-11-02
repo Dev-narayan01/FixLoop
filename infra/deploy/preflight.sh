@@ -180,6 +180,17 @@ else
     warn "ALLOWED_WEB_ORIGINS is empty; browser clients from any origin will be refused (correct if the API is only called by the Android app)"
 fi
 
+# --- ATTACHMENT_STORAGE_DIR -------------------------------------------------
+if is_set "${ATTACHMENT_STORAGE_DIR:-}"; then
+    pass "ATTACHMENT_STORAGE_DIR is set"
+else
+    if $allow_local; then
+        warn "ATTACHMENT_STORAGE_DIR is empty; photographs go to a temporary directory, which is fine for a local run"
+    else
+        fail "ATTACHMENT_STORAGE_DIR is not set; uploaded photographs would live in the container's temporary directory and disappear on restart"
+    fi
+fi
+
 # --- Behaviour switches -----------------------------------------------------
 if [ "${RATE_LIMIT_ENABLED:-true}" = "false" ]; then
     if $rate_limit_off_allowed; then

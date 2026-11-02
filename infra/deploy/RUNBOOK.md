@@ -46,6 +46,7 @@ These are not optional, and most of them are somebody else's decision:
 | `ALLOWED_WEB_ORIGINS` | The web client's origin | Empty refuses all cross-origin browser calls. Never `*`. |
 | `TRUST_FORWARDED_FOR` | `true` only behind a proxy you control | Otherwise a client can choose its own rate-limit key. |
 | `RATE_LIMIT_ENABLED` | `true` | `false` is for a single local run, never a deployment. |
+| `ATTACHMENT_STORAGE_DIR` | A path on a persistent volume | Uploaded photographs. Blank means the container's temporary directory, so they vanish on restart. `ATTACHMENT_MAX_BYTES` defaults to 8 MB. |
 
 ## The preflight check
 
