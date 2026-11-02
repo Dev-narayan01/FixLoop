@@ -12,6 +12,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * token, detect replay, and log out.
  */
 @Testcontainers
+@ActiveProfiles("integration-test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
         // Rate limiting is unit tested; switching it off keeps these flows deterministic.
@@ -44,6 +46,9 @@ class AuthFlowIT {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // The container has no TLS and starts empty, unlike the hosted database.
+        registry.add("spring.datasource.hikari.data-source-properties.sslmode", () -> "disable");
+        registry.add("spring.flyway.enabled", () -> true);
     }
 
     @Autowired
