@@ -226,6 +226,26 @@ not committed yet. This screen cannot log in or submit complaints.
 - CI is configured to run these checks, validate Compose, build and smoke-test
   the API container, and build Flutter web.
 
+## Before deploying
+
+Nothing is deployed yet, and the deploy gate is still open. The plan lives in
+[infra/deploy/RUNBOOK.md](infra/deploy/RUNBOOK.md): environments, the secrets
+each one needs, the order of steps, what to verify afterwards, and what to do
+when a deploy goes wrong.
+
+Check a deployment's configuration before starting it, not after:
+
+```bash
+bash infra/deploy/preflight.sh                    # a hosted deployment
+bash infra/deploy/preflight.sh --allow-local      # a local or CI run
+```
+
+It refuses a blank or placeholder signing key, credentials inside the JDBC URL,
+`ALLOWED_WEB_ORIGINS=*`, a disabled rate limiter, and `TRUST_FORWARDED_FOR`
+without a trusted proxy, and it never prints a secret. It is deliberately
+stricter than the application, which starts happily with most of those mistakes
+in place.
+
 ## Database migration rules
 
 Local note: Compose and CI use PostgreSQL 16. A newer local server (for example
@@ -253,6 +273,7 @@ apps/mobile/        Flutter source and widget test (host files generated locally
 docs/adr/           Architecture decision records (ADR-001 to ADR-003)
 docs/bible/         Supplied project bible (v0.2)
 docs/openapi/       Small contract for the endpoints that exist today
+infra/deploy/       Deployment runbook and pre-deploy configuration check
 infra/seed/         Optional synthetic reference data
 infra/compose-tools.yml  Optional MinIO and Mailpit
 ```
