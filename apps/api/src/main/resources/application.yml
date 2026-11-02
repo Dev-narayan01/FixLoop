@@ -32,7 +32,8 @@ management:
 
 fixloop:
   auth:
-    issuer: ${JWT_ISSUER:fixloop}
+    # The `iss` claim. Keep this a URI: Spring parses it as a URL.
+    issuer: ${JWT_ISSUER:https://fixloop.local}
     # Access tokens are short-lived; refresh tokens rotate on every use.
     access-token-ttl: ${ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${REFRESH_TOKEN_TTL:P14D}

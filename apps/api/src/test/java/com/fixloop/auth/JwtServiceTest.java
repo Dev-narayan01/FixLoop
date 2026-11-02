@@ -66,7 +66,9 @@ class JwtServiceTest {
         assertThat(decoded.getClaimAsString("dept")).isEqualTo(user.departmentId().toString());
         assertThat(decoded.getClaimAsString("email")).isNull();
         assertThat(decoded.hasClaim("email")).isFalse();
-        assertThat(decoded.getIssuer().toString()).isEqualTo("fixloop-test");
+        // Read the raw claim: Jwt#getIssuer() insists on a URL, and a deployment
+        // may well configure a different issuer.
+        assertThat(decoded.getClaimAsString("iss")).isEqualTo("fixloop-test");
         assertThat(Duration.between(decoded.getIssuedAt(), decoded.getExpiresAt()))
             .isEqualTo(Duration.ofMinutes(15));
         assertThat(issued.expiresAt()).isAfter(Instant.now());

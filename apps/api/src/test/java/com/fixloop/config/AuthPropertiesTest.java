@@ -14,7 +14,7 @@ class AuthPropertiesTest {
     void fillsSafeDefaultsWhenNothingIsConfigured() {
         AuthProperties properties = new AuthProperties(null, null, null, null, null, null, null, null);
 
-        assertThat(properties.issuer()).isEqualTo("fixloop");
+        assertThat(properties.issuer()).isEqualTo("https://fixloop.local");
         assertThat(properties.accessTokenTtl()).isEqualTo(Duration.ofMinutes(15));
         assertThat(properties.refreshTokenTtl()).isEqualTo(Duration.ofDays(14));
         assertThat(properties.allowedEmailDomains()).isEqualTo(List.of());

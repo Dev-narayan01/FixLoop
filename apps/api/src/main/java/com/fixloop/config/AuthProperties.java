@@ -29,7 +29,9 @@ public record AuthProperties(
         Boolean trustForwardedFor) {
 
     public AuthProperties {
-        issuer = isBlank(issuer) ? "fixloop" : issuer;
+        // A URI, not a bare word: Spring parses the `iss` claim as a URL, so a
+        // non-URI issuer breaks typed accessors such as Jwt#getIssuer().
+        issuer = isBlank(issuer) ? "https://fixloop.local" : issuer;
         accessTokenTtl = accessTokenTtl == null ? Duration.ofMinutes(15) : accessTokenTtl;
         refreshTokenTtl = refreshTokenTtl == null ? Duration.ofDays(14) : refreshTokenTtl;
         allowedEmailDomains = allowedEmailDomains == null ? List.of() : List.copyOf(allowedEmailDomains);

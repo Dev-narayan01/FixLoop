@@ -32,6 +32,7 @@ services:
       # Blank means an ephemeral signing key: fine for a throwaway local run,
       # never for a deployment. Use at least 32 bytes.
       JWT_SECRET: ${JWT_SECRET:-}
+      JWT_ISSUER: ${JWT_ISSUER:-https://fixloop.local}
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-bmu.edu.in}
       ALLOWED_WEB_ORIGINS: ${ALLOWED_WEB_ORIGINS:-}
       TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-false}
