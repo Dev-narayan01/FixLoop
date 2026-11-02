@@ -166,7 +166,7 @@ before committing them; never commit local properties, signing keys or secrets.
 - `mvn -f apps/api/pom.xml verify` with Java 21, Maven and Docker runs unit
   tests plus Flyway/security tests on a new disposable PostgreSQL 16 container.
 - In `apps/mobile`, run `flutter analyze` and `flutter test` using Flutter
-  3.41.9. CI also builds web.
+  3.41.9. CI also builds web and an Android debug APK.
 - CI builds the API container, runs it against a separate TLS-enabled disposable
   PostgreSQL container, checks the JDBC connection is encrypted and confirms
   no Flyway history was created on startup. It never connects to Supabase.

@@ -175,6 +175,15 @@ void main() {
     expect(find.byTooltip('Remove photo 1'), findsNothing);
   });
 
+  testWidgets('the preview follows the system dark theme', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await startApp(tester);
+    expect(Theme.of(tester.element(find.text('My issues'))).brightness, Brightness.dark);
+    await tapVisible(tester, find.text('Report a problem'));
+    expect(Theme.of(tester.element(find.text('What is wrong?'))).brightness, Brightness.dark);
+  });
+
   testWidgets('small screens and larger text can scroll without overflow', (tester) async {
     final previousErrorHandler = FlutterError.onError;
     FlutterError.onError = (details) {
