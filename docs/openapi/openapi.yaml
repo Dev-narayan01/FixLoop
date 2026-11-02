@@ -180,9 +180,12 @@ paths:
     post:
       tags: [Auth]
       summary: Revoke the presented refresh token
+      description: >-
+        The refresh token in the body is the credential, so no access token is
+        required: a client whose 15-minute access token has expired can still
+        end its session. Unknown or already-revoked tokens also return 204.
       operationId: logout
-      security:
-        - bearerAuth: []
+      security: []
       requestBody:
         required: true
         content:
@@ -192,8 +195,10 @@ paths:
       responses:
         '204':
           description: Revoked, or already invalid
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
+        '400':
+          $ref: '#/components/responses/ClientError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /api/v1/auth/change-password:
     post:

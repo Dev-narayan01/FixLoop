@@ -42,11 +42,15 @@ public class SecurityConfiguration {
         "/actuator/health", "/actuator/health/**",
         "/v3/api-docs", "/v3/api-docs/**",
         "/swagger-ui.html", "/swagger-ui/**",
-        "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh"
+        "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh",
+        // Logout is authenticated by the refresh token in the body, so it must not
+        // need a live access token: an expired access token must still be able to
+        // end a session. The response is always 204, so it reveals nothing.
+        "/api/v1/auth/logout"
     };
 
     private static final String[] AUTHENTICATED_PATHS = {
-        "/api/v1/me", "/api/v1/auth/logout", "/api/v1/auth/change-password"
+        "/api/v1/me", "/api/v1/auth/change-password"
     };
 
     @Bean

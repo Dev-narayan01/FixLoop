@@ -96,7 +96,7 @@ demo day (bible D7).
 | `POST /api/v1/auth/register` | Public | Create a STUDENT account on an allowed email domain |
 | `POST /api/v1/auth/login` | Public | Exchange email and password for tokens |
 | `POST /api/v1/auth/refresh` | Public (with refresh token) | Rotate the refresh token, issue a new access token |
-| `POST /api/v1/auth/logout` | Any signed-in user | Revoke the presented refresh token |
+| `POST /api/v1/auth/logout` | Public — the refresh token in the body is the credential | Revoke the presented refresh token, even after the access token expired |
 | `POST /api/v1/auth/change-password` | Any signed-in user | Change the password and revoke other sessions |
 | `GET /api/v1/me` | Any signed-in user | The caller's account, role and scope |
 
@@ -111,8 +111,8 @@ How it behaves:
   they are the email address or an obvious default.
 - Login failures are indistinguishable: unknown address, wrong password and
   disabled account all return the same `401 INVALID_CREDENTIALS`.
-- Login and registration are rate limited per IP; complaint creation will be
-  limited the same way when it exists.
+- Login, registration, refresh and logout are rate limited per IP; complaint
+  creation will be limited the same way when it exists.
 - Every failure uses one error shape with a `traceId`.
 
 Set these in `.env` for local work:
@@ -227,6 +227,11 @@ not committed yet. This screen cannot log in or submit complaints.
   the API container, and build Flutter web.
 
 ## Database migration rules
+
+Local note: Compose and CI use PostgreSQL 16. A newer local server (for example
+PostgreSQL 18 from a distribution package) also works — Flyway applies the
+migration — but logs that it only supports up to 17. That warning is harmless
+for local development; do not ignore it if it appears against a hosted database.
 
 `apps/api/src/main/resources/db/migration/V1__init.sql` is the existing schema
 and has intentionally been left unchanged. Flyway is configured **not** to

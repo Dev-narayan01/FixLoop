@@ -34,6 +34,8 @@ public class AuthController {
     private static final Duration REGISTER_WINDOW = Duration.ofHours(1);
     private static final int REFRESH_LIMIT = 60;
     private static final Duration REFRESH_WINDOW = Duration.ofMinutes(5);
+    private static final int LOGOUT_LIMIT = 60;
+    private static final Duration LOGOUT_WINDOW = Duration.ofMinutes(5);
     private static final int PASSWORD_LIMIT = 10;
     private static final Duration PASSWORD_WINDOW = Duration.ofHours(1);
 
@@ -68,7 +70,8 @@ public class AuthController {
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody RefreshRequest request) {
+    public void logout(@Valid @RequestBody RefreshRequest request, HttpServletRequest http) {
+        limit("logout:" + clientIp(http), LOGOUT_LIMIT, LOGOUT_WINDOW);
         authService.logout(request.refreshToken());
     }
 

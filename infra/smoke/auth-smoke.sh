@@ -231,9 +231,15 @@ printf '%s\n' '----------------------------------------'
 printf '\n'
 cat <<'TEXT'
 Cleanup (optional, local data only): the smoke run created the account printed
-at the top. It has no complaints, so removing every smoke-* account is safe:
+at the top. It has no complaints, so removing every smoke-* account is safe.
 
-  docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < infra/smoke/cleanup.sql
+  Running the API with Docker Compose:
+    docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < infra/smoke/cleanup.sql
+
+  Running the API against a PostgreSQL you installed yourself:
+    psql -U fixloop -d fixloop -f infra/smoke/cleanup.sql
+
+Leaving the accounts in place is harmless; repeated runs simply add rows.
 
 TEXT
 
