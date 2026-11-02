@@ -250,6 +250,7 @@ follow-up migration and authorization tests before those features can work.
 ```text
 apps/api/           Spring Boot application, tests and Dockerfile
 apps/mobile/        Flutter source and widget test (host files generated locally)
+docs/adr/           Architecture decision records (ADR-001 to ADR-003)
 docs/bible/         Supplied project bible (v0.2)
 docs/openapi/       Small contract for the endpoints that exist today
 infra/seed/         Optional synthetic reference data
