@@ -50,9 +50,12 @@ jobs:
           docker compose -f docker-compose.yml -f .github/ci/compose-db.yml config --quiet
       - name: Build the API container
         run: docker compose build api
-      - name: Start API against disposable TLS database
+      - name: Start API against a nonempty disposable TLS database
         run: |
           docker compose -f docker-compose.yml -f .github/ci/compose-db.yml up -d --wait --wait-timeout 180 ci-db
+          # Pre-create the schema to simulate the hosted database with no Flyway history.
+          docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
+            psql -v ON_ERROR_STOP=1 -U fixloop_ci -d fixloop_ci < apps/api/src/main/resources/db/migration/V1__init.sql
           docker compose -f docker-compose.yml -f .github/ci/compose-db.yml up -d --wait --wait-timeout 180 api
           curl --fail --silent --show-error http://127.0.0.1:18080/actuator/health
           ssl_count=$(docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
@@ -61,10 +64,8 @@ jobs:
           no_history=$(docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
             psql -U fixloop_ci -d fixloop_ci -Atc "SELECT to_regclass('public.flyway_schema_history') IS NULL")
           test "$no_history" = t
-      - name: Check the original migration and synthetic seed on CI data only
+      - name: Check synthetic seed on CI data only
         run: |
-          docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
-            psql -v ON_ERROR_STOP=1 -U fixloop_ci -d fixloop_ci < apps/api/src/main/resources/db/migration/V1__init.sql
           for attempt in 1 2; do
             docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
               psql -v ON_ERROR_STOP=1 -U fixloop_ci -d fixloop_ci < infra/seed/seed.sql
@@ -95,5 +96,17 @@ jobs:
         run: flutter create --no-pub --platforms=android,web --project-name fixloop_mobile --org com.fixloop .
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter test
+      - name: Run Flutter widget tests
+        run: |
+          if flutter test --reporter expanded 2>&1 | tee "$RUNNER_TEMP/flutter-test.log"; then
+            exit 0
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP'], 'flutter-test.log').read_text(errors='replace')[:16000]
+          log = log.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Flutter widget test output::{log}')
+          PY
+          exit 1
       - run: flutter build web
