@@ -176,6 +176,12 @@ void main() {
   });
 
   testWidgets('small screens and larger text can scroll without overflow', (tester) async {
+    final previousErrorHandler = FlutterError.onError;
+    FlutterError.onError = (details) {
+      FlutterError.dumpErrorToConsole(details, forceReport: true);
+      previousErrorHandler?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = previousErrorHandler);
     tester.view.physicalSize = const Size(320, 700);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;

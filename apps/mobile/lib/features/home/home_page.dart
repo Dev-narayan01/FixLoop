@@ -190,11 +190,18 @@ class _PreviewHomePageState extends State<PreviewHomePage> {
             padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
             child: Align(
               alignment: Alignment.centerRight,
-              child: FilledButton.icon(
+              child: FilledButton(
                 key: const ValueKey<String>('start-report'),
                 onPressed: _openReport,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Report a problem'),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(Icons.add_rounded),
+                    SizedBox(width: 8),
+                    Flexible(child: Text('Report a problem', textAlign: TextAlign.center)),
+                  ],
+                ),
               ),
             ),
           ),
