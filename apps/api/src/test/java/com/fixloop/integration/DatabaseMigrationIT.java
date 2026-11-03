@@ -11,6 +11,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Runs during mvn verify, against a fresh real PostgreSQL 16 container. */
 @Testcontainers
+@ActiveProfiles("integration-test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class DatabaseMigrationIT {
     @Container
@@ -32,6 +34,9 @@ class DatabaseMigrationIT {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // V1 is tested only against this new disposable container, never Supabase.
+        registry.add("spring.flyway.enabled", () -> true);
+        registry.add("spring.datasource.hikari.data-source-properties.sslmode", () -> "disable");
     }
 
     @Autowired

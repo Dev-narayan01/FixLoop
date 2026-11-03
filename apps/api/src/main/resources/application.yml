@@ -2,11 +2,21 @@ spring:
   application:
     name: fixloop-api
   datasource:
-    # Use a JDBC URL. Compose supplies the db hostname inside its network.
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/fixloop}
-    username: ${DATABASE_USER:fixloop}
-    password: ${DATABASE_PASSWORD:}
+    # Server-side JDBC only. Do not put the password or SSL options in the URL.
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:4}
+      data-source-properties:
+        # pgJDBC verifies both the issuing CA and the server hostname.
+        sslmode: verify-full
+        sslrootcert: ${DATABASE_SSL_ROOT_CERT:/run/secrets/supabase-ca.crt}
+        "[ApplicationName]": fixloop-api
   flyway:
+    # The hosted schema predates this app's Flyway history. Do not change it
+    # automatically. Tests opt in only for their disposable database.
+    enabled: false
     locations: classpath:db/migration
     baseline-on-migrate: false
     clean-disabled: true
