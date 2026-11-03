@@ -1,33 +1,17 @@
 name: fixloop
 
+# The application connects to the existing hosted database; no local database
+# service or volume is created. The old postgres_data volume is not removed.
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-fixloop}
-      POSTGRES_USER: ${POSTGRES_USER:-fixloop}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env file}
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
   api:
     build:
       context: ./apps/api
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-fixloop}
-      DATABASE_USER: ${POSTGRES_USER:-fixloop}
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env file}
+      DATABASE_URL: ${DATABASE_URL:?Set the Supabase JDBC DATABASE_URL in .env}
+      DATABASE_USER: ${DATABASE_USER:?Set DATABASE_USER in .env}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in .env}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-4}
+      DATABASE_SSL_ROOT_CERT: /run/secrets/supabase-ca.crt
       PORT: 8080
       # Blank means an ephemeral signing key: fine for a throwaway local run,
       # never for a deployment. Use at least 32 bytes.
@@ -36,9 +20,17 @@ services:
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-bmu.edu.in}
       ALLOWED_WEB_ORIGINS: ${ALLOWED_WEB_ORIGINS:-}
       TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-false}
+      # Uploaded photographs. Blank means the container's temporary directory,
+      # which is fine locally and wrong for a deployment.
+      ATTACHMENT_STORAGE_DIR: ${ATTACHMENT_STORAGE_DIR:-}
+      ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-8388608}
+    volumes:
+      - type: bind
+        source: ${SUPABASE_CA_CERT_PATH:?Set the path to the Supabase CA certificate in .env}
+        target: /run/secrets/supabase-ca.crt
+        read_only: true
+        bind:
+          create_host_path: false
     ports:
       - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8080}:8080"
     restart: unless-stopped
-
-volumes:
-  postgres_data:

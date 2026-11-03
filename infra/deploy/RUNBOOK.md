@@ -16,6 +16,24 @@ applied) and the root README (running the stack locally).
 | CI | disposable PostgreSQL in a job, and a TLS-enabled one for the hardened path | both paths tested | runs on the disposable one only | GitHub Actions |
 | Hosted | Supabase PostgreSQL | `sslmode=verify-full` with the project CA | **never runs in the application**; migrations are applied deliberately | the deployed API |
 
+## What is known about the hosted database
+
+Recorded here so nobody re-derives it, and so the limits of the knowledge are
+visible:
+
+- A **read-only inspection** on 2026-11-02 found the application tables present
+  but **no visible `flyway_schema_history`**. Flyway has therefore never run
+  against it, and applying `V1__init.sql` by hand would collide with tables that
+  already exist.
+- The same inspection found **three public analytics views** with anonymous
+  SELECT and owner-run behaviour. They may expose aggregate information through
+  Supabase's public REST schema; external REST access was never tested. Review
+  this with the database owner before real data goes anywhere near it.
+- **A connector inspection is not a JDBC test.** The first real verification of
+  the application's TLS connection happens in the environment that runs it.
+- The hosted database has never been baselined, seeded or policy-changed by this
+  team. `infra/seed/seed.sql` is for disposable databases only.
+
 ## Before the first deploy
 
 These are not optional, and most of them are somebody else's decision:
@@ -25,9 +43,12 @@ These are not optional, and most of them are somebody else's decision:
 2. **Decide the database story** — ADR-003. It must be accepted, not merely
    written, because it decides whether the hosted database is the only one or
    one of two.
-3. **Inspect the hosted database before pointing the API at it.** Confirm whether
-   `flyway_schema_history` exists and which tables already exist. Until that is
-   known, `spring.flyway.enabled` stays `false` and nothing is baselined.
+3. **Agree what to do about the hosted schema.** A read-only inspection on
+   2026-11-02 found that the application tables exist but no `flyway_schema_history`
+   is visible, which means Flyway has never run there and `V1__init.sql` must not
+   be applied to it. Before any migration: review schema equivalence with
+   `V1__init.sql`, confirm backups, and agree who applies migrations. Until then
+   `spring.flyway.enabled` stays `false` and nothing is baselined.
 4. **Provision the platform** (host, region, a public HTTPS hostname) and put the
    secrets in its secret store, not in a file in the repository.
 5. **Confirm the allowed origins** — the Flutter web build's origin, if it is
@@ -130,6 +151,8 @@ The application rolls back; the database does not.
 | --- | --- | --- |
 | Rotate the exposed database credential | Dev + database owner | everything |
 | Accept ADR-003 | Yash, Dushyant | hosted configuration |
-| Inspect the hosted schema and `flyway_schema_history` | Yash (dashboard access) | first `V2`, baselining |
+| Review hosted schema equivalence with `V1__init.sql`, and the analytics views' access | Dev + database owner | first `V2`, baselining |
 | Choose and provision the hosting platform | Dev | the deploy itself |
 | Q1: does `bmu.edu.in` email verification exist, and is it required? | Dev | registration policy in production |
+| Verify the first JDBC connection from the deployment environment | Dev | goes live |
+| Decide who may apply a hosted migration, and when | All | any `V2` |

@@ -6,6 +6,8 @@
 *.jks
 *.keystore
 key.properties
+# Local certificates and secret-manager material
+secrets/
 
 # Editors and OS files
 .idea/

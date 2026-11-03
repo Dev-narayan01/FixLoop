@@ -11,9 +11,10 @@ jobs:
   api:
     runs-on: ubuntu-24.04
     env:
-      # Disposable CI database only; never use this password for real data.
-      POSTGRES_PASSWORD: ci-only-password
-      POSTGRES_PORT: '55432'
+      # This database exists only on the disposable GitHub Actions runner.
+      DATABASE_URL: jdbc:postgresql://ci-db:5432/fixloop_ci
+      DATABASE_USER: fixloop_ci
+      DATABASE_PASSWORD: ci-only-password
       API_PORT: '18080'
     steps:
       - uses: actions/checkout@v7
@@ -23,34 +24,63 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: apps/api/pom.xml
-      - name: Unit and PostgreSQL integration tests
+      - name: Unit and disposable PostgreSQL integration tests
         run: mvn --batch-mode --no-transfer-progress -f apps/api/pom.xml verify
+      - name: Create disposable CI certificates
+        run: |
+          dir="$RUNNER_TEMP/fixloop-ci-certs"
+          mkdir -p "$dir"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=FixLoop disposable CI CA' \
+            -keyout "$dir/ca.key" -out "$dir/ca.crt"
+          openssl req -newkey rsa:2048 -nodes -subj '/CN=ci-db' \
+            -keyout "$dir/server.key" -out "$dir/server.csr"
+          printf 'subjectAltName=DNS:ci-db\nextendedKeyUsage=serverAuth\n' > "$dir/server.ext"
+          openssl x509 -req -days 1 -in "$dir/server.csr" -CA "$dir/ca.crt" \
+            -CAkey "$dir/ca.key" -CAcreateserial -extfile "$dir/server.ext" \
+            -out "$dir/server.crt"
+          chmod 644 "$dir/ca.crt" "$dir/server.crt"
+          echo "CI_CERT_DIR=$dir" >> "$GITHUB_ENV"
+          echo "SUPABASE_CA_CERT_PATH=$dir/ca.crt" >> "$GITHUB_ENV"
       - name: Validate Compose files
         run: |
           docker compose config --quiet
           MINIO_ROOT_USER=ci-only-user MINIO_ROOT_PASSWORD=ci-only-password \
             docker compose -f docker-compose.yml -f infra/compose-tools.yml config --quiet
+          docker compose -f docker-compose.yml -f .github/ci/compose-db.yml config --quiet
       - name: Build the API container
         run: docker compose build api
-      - name: Start and check the local stack
+      - name: Start API against a nonempty disposable TLS database
         run: |
-          docker compose up -d --wait --wait-timeout 180 db api
+          docker compose -f docker-compose.yml -f .github/ci/compose-db.yml up -d --wait --wait-timeout 180 ci-db
+          # Pre-create the schema to simulate the hosted database with no Flyway history.
+          docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
+            psql -v ON_ERROR_STOP=1 -U fixloop_ci -d fixloop_ci < apps/api/src/main/resources/db/migration/V1__init.sql
+          docker compose -f docker-compose.yml -f .github/ci/compose-db.yml up -d --wait --wait-timeout 180 api
           curl --fail --silent --show-error http://127.0.0.1:18080/actuator/health
-      - name: Check that local reference data is repeatable
+          ssl_count=$(docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
+            psql -U fixloop_ci -d fixloop_ci -Atc "SELECT count(*) FROM pg_stat_activity a JOIN pg_stat_ssl s USING (pid) WHERE a.application_name = 'fixloop-api' AND s.ssl")
+          test "$ssl_count" -gt 0
+          no_history=$(docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
+            psql -U fixloop_ci -d fixloop_ci -Atc "SELECT to_regclass('public.flyway_schema_history') IS NULL")
+          test "$no_history" = t
+      - name: Check synthetic seed on CI data only
         run: |
           for attempt in 1 2; do
-            docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < infra/seed/seed.sql
+            docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
+              psql -v ON_ERROR_STOP=1 -U fixloop_ci -d fixloop_ci < infra/seed/seed.sql
           done
-          count=$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT count(*) FROM categories"')
+          count=$(docker compose -f docker-compose.yml -f .github/ci/compose-db.yml exec -T ci-db \
+            psql -U fixloop_ci -d fixloop_ci -Atc 'SELECT count(*) FROM categories')
           test "$count" = 2
       - name: Smoke-test the identity endpoints
         run: bash infra/smoke/auth-smoke.sh http://127.0.0.1:18080
-      - name: Show logs on failure
-        if: failure()
-        run: docker compose logs --no-color
+      - name: Show disposable CI logs on failure
+        if: ${{ failure() && env.CI_CERT_DIR != '' }}
+        run: docker compose -f docker-compose.yml -f .github/ci/compose-db.yml logs --no-color
       - name: Remove the disposable CI stack
-        if: always()
-        run: docker compose down --volumes --remove-orphans
+        if: ${{ always() && env.CI_CERT_DIR != '' }}
+        run: docker compose -f docker-compose.yml -f .github/ci/compose-db.yml down --volumes --remove-orphans
 
   flutter:
     runs-on: ubuntu-24.04
@@ -59,6 +89,10 @@ jobs:
         working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.9'
@@ -68,5 +102,20 @@ jobs:
         run: flutter create --no-pub --platforms=android,web --project-name fixloop_mobile --org com.fixloop .
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter test
+      - name: Run Flutter widget tests
+        run: |
+          set -o pipefail
+          if flutter test --reporter expanded 2>&1 | tee "$RUNNER_TEMP/flutter-test.log"; then
+            exit 0
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP'], 'flutter-test.log').read_text(errors='replace')[:16000]
+          log = log.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Flutter widget test output::{log}')
+          PY
+          exit 1
       - run: flutter build web
+      - name: Build Android debug APK
+        run: flutter build apk --debug
