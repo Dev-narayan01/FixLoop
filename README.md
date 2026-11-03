@@ -274,6 +274,17 @@ Nothing is deployed yet, and the deploy gate is still open. The plan lives in
 each needs, the order of steps, what to verify afterwards, and what to do when a
 deploy goes wrong.
 
+Prove the database connection before starting the API, so a connection problem
+is never confused with an application problem:
+
+```bash
+bash infra/deploy/db-check.sh
+```
+
+It reads `.env`, connects through `psql` with `sslmode=verify-full` and the same
+CA certificate, and reports whether the tables and columns the API uses exist.
+It is read-only, prints no secrets, and exits non-zero if anything is missing.
+
 Check a deployment's configuration before starting it, not after:
 
 ```bash

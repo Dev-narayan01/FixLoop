@@ -4,7 +4,7 @@
 #
 # Use it against a stack running on your own computer, before you merge:
 #
-#   docker compose up -d --wait db api
+#   docker compose up -d --wait api
 #   bash infra/smoke/auth-smoke.sh
 #
 # Or against any base URL:

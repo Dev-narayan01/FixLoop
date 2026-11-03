@@ -34,6 +34,17 @@ visible:
 - The hosted database has never been baselined, seeded or policy-changed by this
   team. `infra/seed/seed.sql` is for disposable databases only.
 
+## Proving the database connection
+
+`infra/deploy/db-check.sh` answers "is the database reachable, encrypted and
+shaped the way the API expects" without starting the API. It connects with
+`psql` from the Postgres image using the same CA certificate and
+`sslmode=verify-full`, then checks the tables and columns the code queries. It is
+read-only and prints no secrets. Run it before `docker compose up`, so a
+connection failure is not mistaken for an application failure, and again from
+the deployment host before pointing real users at it: a local success does not
+prove the deployed environment's egress path.
+
 ## Before the first deploy
 
 These are not optional, and most of them are somebody else's decision:
