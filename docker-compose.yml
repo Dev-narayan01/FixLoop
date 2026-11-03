@@ -20,6 +20,8 @@ services:
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS:-bmu.edu.in}
       ALLOWED_WEB_ORIGINS: ${ALLOWED_WEB_ORIGINS:-}
       TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-false}
+      # Never false in a deployment: infra/deploy/preflight.sh refuses it.
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       # Uploaded photographs. Blank means the container's temporary directory,
       # which is fine locally and wrong for a deployment.
       ATTACHMENT_STORAGE_DIR: ${ATTACHMENT_STORAGE_DIR:-}
