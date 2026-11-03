@@ -10,6 +10,11 @@
 #
 #   bash infra/deploy/db-check.sh
 #
+# With --cleanup it instead removes the throwaway smoke-* accounts left by
+# infra/smoke/auth-smoke.sh (that one writes to the database):
+#
+#   bash infra/deploy/db-check.sh --cleanup
+#
 # It reads .env for DATABASE_URL, DATABASE_USER, DATABASE_PASSWORD and
 # SUPABASE_CA_CERT_PATH, and never prints the password or the full URL.
 
@@ -113,6 +118,20 @@ pass "docker is available"
 cert_path="$(realpath "$SUPABASE_CA_CERT_PATH" 2> /dev/null || printf '%s' "$SUPABASE_CA_CERT_PATH")"
 conninfo="host=$database_host port=$database_port user=$DATABASE_USER dbname=$database_name"
 conninfo="$conninfo sslmode=verify-full sslrootcert=/certs/ca.crt"
+
+if [ "${1:-}" = "--cleanup" ]; then
+    section "Removing the throwaway smoke accounts (this writes)"
+    if docker run --rm -i \
+        -v "$cert_path:/certs/ca.crt:ro" \
+        -v "$(realpath infra/smoke):/smoke:ro" \
+        -e PGPASSWORD="$DATABASE_PASSWORD" \
+        "$POSTGRES_IMAGE" psql "$conninfo" -X -v ON_ERROR_STOP=1 -f /smoke/cleanup.sql; then
+        printf '\nSmoke accounts removed. Nothing else was touched.\n'
+        exit 0
+    fi
+    printf '\nCleanup failed; the accounts are harmless but still there.\n'
+    exit 1
+fi
 
 query="
 select 'version|' || current_setting('server_version');

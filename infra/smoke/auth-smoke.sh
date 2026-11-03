@@ -234,7 +234,7 @@ Cleanup (optional, local data only): the smoke run created the account printed
 at the top. It has no complaints, so removing every smoke-* account is safe.
 
   Running the API with Docker Compose:
-    docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < infra/smoke/cleanup.sql
+    bash infra/deploy/db-check.sh --cleanup
 
   Running the API against a PostgreSQL you installed yourself:
     psql -U fixloop -d fixloop -f infra/smoke/cleanup.sql

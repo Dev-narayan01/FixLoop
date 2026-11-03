@@ -262,7 +262,7 @@ What each level of testing proves for the identity work:
 
 Notes: level 1 needs no Docker and is the fastest check; `*IT` classes only run
 during `verify`. The smoke script creates one throwaway `smoke-*@bmu.edu.in`
-account and prints the cleanup command (`infra/smoke/cleanup.sql`). Registration
+account and tells you to remove it with `bash infra/deploy/db-check.sh --cleanup`. Registration
 is limited to five per hour per IP, so repeated runs can return `429` — wait, or
 set `RATE_LIMIT_ENABLED=false` for the session. Never run it against a database
 holding real complaints.
