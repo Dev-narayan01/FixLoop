@@ -134,9 +134,12 @@ The original `V1__init.sql` remains unchanged. Automatic Flyway migrations are
 profile. Its integration tests opt in only for a newly created disposable test
 container. The read-only Supabase inspection found application tables but no
 visible `flyway_schema_history`; Supabase's migration history is separate.
-Never run V1, baseline, seed, or otherwise modify the hosted schema until the
-team reviews schema equivalence, backups, migration ownership and an explicit
-forward-only plan. Migrations are applied deliberately by a named person, never
+The hosted schema has been compared with `V1__init.sql` (2026-11-04) and matches
+it column for column — 13 tables, 107 columns — so that file is the source of
+truth for what is already there, and it was applied by hand rather than by
+Flyway. Never run V1, baseline, seed, or otherwise modify the hosted schema until
+the team agrees a baseline-or-recreate decision, backups, migration ownership and
+an explicit forward-only plan. Migrations are applied deliberately by a named person, never
 by a running deployment (ADR-003): `V1__init.sql` is never edited, later changes
 are forward-only `V2`, `V3` and so on, there is no down-migration path, and the
 resulting version is recorded in [infra/deploy/RUNBOOK.md](infra/deploy/RUNBOOK.md). `infra/seed/seed.sql` is for disposable synthetic databases

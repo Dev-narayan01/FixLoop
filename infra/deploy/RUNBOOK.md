@@ -25,6 +25,15 @@ visible:
   but **no visible `flyway_schema_history`**. Flyway has therefore never run
   against it, and applying `V1__init.sql` by hand would collide with tables that
   already exist.
+- The dashboard's schema listing was compared with `V1__init.sql` on 2026-11-04
+  and **matches column for column**: the same 13 tables and the same 107 columns,
+  no extras and nothing missing. So the hosted database *is* V1 — it was created
+  by pasting that file into the SQL editor, not by a migration. What the listing
+  does not show is defaults, check constraints, indexes, row-level security or
+  views, so those are still unconfirmed.
+- One gap follows from that comparison: `attachments` has **no checksum column**,
+  although the upload endpoint computes one. A forward-only `V2` has to add it
+  before the complaint endpoint can link an upload to a row.
 - The same inspection found **three public analytics views** with anonymous
   SELECT and owner-run behaviour. They may expose aggregate information through
   Supabase's public REST schema; external REST access was never tested. Review
@@ -162,7 +171,8 @@ The application rolls back; the database does not.
 | --- | --- | --- |
 | Rotate the exposed database credential | Dev + database owner | everything |
 | Accept ADR-003 | Yash, Dushyant | hosted configuration |
-| Review hosted schema equivalence with `V1__init.sql`, and the analytics views' access | Dev + database owner | first `V2`, baselining |
+| Decide **baseline or recreate** for the hosted database, now that it is known to equal V1 | Dev + database owner | any `V2` |
+| Confirm column defaults, row-level security and the analytics views on the hosted database | Dev (SQL editor) | first `V2`, go-live |
 | Choose and provision the hosting platform | Dev | the deploy itself |
 | Q1: does `bmu.edu.in` email verification exist, and is it required? | Dev | registration policy in production |
 | Verify the first JDBC connection from the deployment environment | Dev | goes live |
