@@ -309,6 +309,8 @@ apps/mobile/          Flutter preview, offline fonts and widget tests
 docs/design/          Supplied Stitch design system
 docs/bible/           Supplied project bible (v0.2)
 docs/adr/             Architecture decision records (ADR-001 to ADR-003)
+docs/quality/         Security checklist for the feature-freeze gate
+docs/report/          Report chapter draft and the Track C teach-back notes
 docs/openapi/         Small contract for the endpoints that exist today
 infra/deploy/         Deployment runbook and pre-deploy configuration check
 infra/seed/           Synthetic data for disposable tests only

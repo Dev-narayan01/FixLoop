@@ -158,8 +158,23 @@ The application rolls back; the database does not.
 
 ## Backups and monitoring
 
-- Confirm the provider's automated backups are on, and that a restore has been
-  tested at least once — an untested backup is a hope, not a backup.
+- **There are no automatic backups on the free tier**, so the backup is a manual
+  logical dump. Run the drill, do not assume it works:
+
+  ```bash
+  bash infra/deploy/backup-drill.sh
+  ```
+
+  It dumps the hosted database into `backups/` (git-ignored), restores the dump
+  into a throwaway PostgreSQL 16 container, compares row counts table by table
+  and removes the container. It reads `.env`, writes nothing to the hosted
+  database, and exits non-zero if the counts differ or the dump is too small to
+  be real. Run it again after any migration and before the demo.
+- An untested backup is a hope, not a backup. Record each drill below:
+
+  | Date | Dump file | Tables | Rows | Counts matched |
+  |---|---|---|---|---|
+  | _not run yet_ | | | | |
 - Point an external uptime check at `/actuator/health`. It is cheap and it is the
   difference between finding out from a user and finding out from a monitor.
 - Keep the deploy log: commit SHA, who deployed, when, and which migration

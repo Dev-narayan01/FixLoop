@@ -29,3 +29,6 @@ target/
 *.class
 .gradle/
 node_modules/
+
+# Local database dumps from infra/deploy/backup-drill.sh
+backups/
