@@ -31,9 +31,16 @@ visible:
   by pasting that file into the SQL editor, not by a migration. What the listing
   does not show is defaults, check constraints, indexes, row-level security or
   views, so those are still unconfirmed.
-- One gap follows from that comparison: `attachments` has **no checksum column**,
-  although the upload endpoint computes one. A forward-only `V2` has to add it
-  before the complaint endpoint can link an upload to a row.
+- The full DDL was inspected on 2026-11-05, so **defaults, check constraints and
+  foreign keys are now confirmed**, not assumed: `gen_random_uuid()` on every id,
+  `now()` on the timestamps, `true` on the `active` flags, and the enumerated
+  `CHECK` lists that match `V1`. Indexes, row-level security, the three view
+  definitions and the data itself are still not confirmed.
+- One gap followed from that comparison: `attachments` had **no checksum column**,
+  although the upload endpoint computes one. `V2__attachments_checksum.sql` adds
+  it. The file exists but has not been applied anywhere, because the hosted
+  database has no migration history and the baseline-or-recreate decision is
+  still open.
 - The same inspection found **three public analytics views** with anonymous
   SELECT and owner-run behaviour. They may expose aggregate information through
   Supabase's public REST schema; external REST access was never tested. Review

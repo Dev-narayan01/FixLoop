@@ -285,6 +285,101 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: The caller's in-app notifications
+      description: >-
+        Scoped to the signed-in account: the account comes from the token, never
+        from a parameter, and there is no way to read another user's inbox.
+        `unreadCount` counts every unread in-app notification, not only the ones
+        on this page, because that is the number a tab badge shows. Email and push
+        rows exist in the schema but are not delivered yet, so they never appear
+        here.
+      operationId: listNotifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: unreadOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          required: false
+          description: At most 100; a larger value is capped at 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: One page of the caller's inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationInbox'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark one notification read
+      description: >-
+        Idempotent: marking an already-read notification read again succeeds.
+        Another account's notification is answered with 404 rather than 403, so
+        the response does not confirm that it exists.
+      operationId: markNotificationRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Marked read
+        '400':
+          $ref: '#/components/responses/ClientError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: No such notification for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark every unread notification read
+      operationId: markAllNotificationsRead
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: How many rows changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -325,6 +420,49 @@ components:
             $ref: '#/components/schemas/ApiError'
 
   schemas:
+    NotificationResponse:
+      type: object
+      required: [id, type, payload, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: COMPLAINT_RESOLVED
+          description: Whichever module raised it; the API does not interpret it.
+        payload:
+          type: object
+          additionalProperties: true
+          description: A JSON object, so a client can read a field without parsing JSON inside JSON.
+        status:
+          type: string
+          enum: [PENDING, SENT, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+    NotificationInbox:
+      type: object
+      required: [items, unreadCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+        unreadCount:
+          type: integer
+          example: 3
+    MarkAllReadResponse:
+      type: object
+      required: [markedRead]
+      properties:
+        markedRead:
+          type: integer
+          example: 4
     AttachmentResponse:
       type: object
       required: [storageKey, mimeType, sizeBytes, checksumSha256]

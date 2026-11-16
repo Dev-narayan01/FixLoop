@@ -53,7 +53,10 @@ public class SecurityConfiguration {
         "/api/v1/me", "/api/v1/auth/change-password",
         // Photograph uploads: a signed-in account only. Reads arrive with the
         // complaint endpoints, where ownership can be checked.
-        "/api/v1/attachments"
+        "/api/v1/attachments",
+        // An account may only ever see its own notifications; the controller
+        // scopes every query by the subject of the token.
+        "/api/v1/notifications", "/api/v1/notifications/**"
     };
 
     @Bean

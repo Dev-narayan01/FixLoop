@@ -24,12 +24,15 @@ foundation and **must not be used for real reports or real users yet**.
   PNG or WebP, checks the content rather than the filename, and returns a storage
   key and SHA-256 checksum. There is no download endpoint yet, and uploads are
   not yet linked to a complaint row.
+- **An in-app notification inbox**: the API can raise a notification for an
+  account, list that account's notifications and mark them read. Nothing raises
+  one yet — the complaint and workflow code will, inside its own transaction.
 - Tests and CI using **disposable** PostgreSQL databases. The default Compose
   file no longer creates a local PostgreSQL service.
 
 **Not implemented:** real complaint or feedback endpoints, routing, workflow
-authorization, attachment download, notifications, a Flutter API client, or a
-public deployment. A success screen is a preview, not
+authorization, attachment download, email or push delivery of notifications, a
+Flutter API client, or a public deployment. A success screen is a preview, not
 proof of a submission. The API's domain routes remain denied until real
 server-side authentication and authorization exist. Flutter never receives a
 database password or Supabase service-role key.
@@ -221,6 +224,34 @@ by hand; there is no password reset; uploads are not yet attached to a complaint
 because the `attachments` table requires a `complaint_id`; and there is no
 download endpoint, because reading a photograph must be authorised against the
 complaint it belongs to.
+
+### Notifications (in-app, implemented)
+
+`V1` already had a `notifications_outbox` table with dispatch indexes; this adds the
+API in front of it.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/v1/notifications?unreadOnly=&limit=` | The caller's inbox, newest first, plus an `unreadCount` for the tab badge |
+| `POST /api/v1/notifications/{id}/read` | Mark one read |
+| `POST /api/v1/notifications/read-all` | Mark every unread read, and report how many |
+
+- Every query is scoped by the account in the token. There is no parameter for a
+  user id, so one student cannot read another's notifications, and ids belonging
+  to someone else answer `404` rather than `403` — the response does not confirm
+  that a notification exists.
+- Marking read is idempotent, so a client that retried after a dropped response
+  does not see an error.
+- An in-app notification is written as `SENT` immediately, because "delivered"
+  for an in-app message means "the row exists". Email and push are written as
+  `PENDING` and nothing drains them: there is no mail transport and no push
+  credentials. The schema already carries `attempts` and `next_attempt_at` for the
+  worker that will.
+- Payloads are capped at 4 KB and rendered as a JSON object, so a client reads a
+  field without parsing JSON inside JSON.
+- The complaint and workflow code should call `NotificationService.notifyInApp`
+  **inside its own transaction**, so a complaint cannot be saved without its
+  notification and a notification cannot outlive a rolled-back complaint.
 
 ### Running the API against a local database
 
