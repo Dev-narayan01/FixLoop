@@ -80,6 +80,15 @@ for name in DATABASE_URL DATABASE_USER DATABASE_PASSWORD SUPABASE_CA_CERT_PATH; 
         die "$name is not set in .env"
     fi
 done
+# A template value is not a configuration. Catch it here so the failure names
+# the variable instead of surfacing later as an unknown host or an auth error.
+for name in DATABASE_URL DATABASE_USER DATABASE_PASSWORD; do
+    value="$(eval "printf '%s' \"\${$name:-}\"")"
+    case "$value" in
+        *'<'*|*'>'*|*PROJECT_REF*|*CHANGE_ME*|*YOUR_*)
+            die "$name still holds a placeholder from the template; put the real value in .env" ;;
+    esac
+done
 [ -f "$SUPABASE_CA_CERT_PATH" ] || die "CA certificate not found: $SUPABASE_CA_CERT_PATH"
 command -v docker > /dev/null 2>&1 || die "docker is not available"
 pass "Credentials and CA certificate present"
