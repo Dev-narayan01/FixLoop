@@ -8,8 +8,10 @@ Status legend:
 - **N/A** — out of scope, stated deliberately
 
 Latest verification, 16 November 2026: `mvn -B -ntp -f apps/api/pom.xml test` on the
-merged branch — **57 tests, 0 failures, BUILD SUCCESS** (41 classes). The 10
-Testcontainers tests (`mvn verify`) have still not run.
+merged branch — **57 tests, 0 failures, BUILD SUCCESS** (41 classes).
+`mvn verify` on the same day built and repackaged the jar, then aborted both
+integration classes with "Could not find a valid Docker environment" — Docker is
+not integrated with WSL here, so **no integration assertion has ever run**.
 
 At G4 every **OPEN** row must become **DONE**, or be written into the report as an
 accepted risk with a reason. An unexamined checkbox is worse than an honest gap.

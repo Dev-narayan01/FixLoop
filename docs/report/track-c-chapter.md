@@ -126,8 +126,8 @@ Three scripts and one runbook:
 | Level | What it proves | Status |
 |---|---|---|
 | Unit tests (16 classes, 57 tests executed) | Password policy, token claims, rotation logic, rate limiter, upload policy, path safety, notification scoping and inbox | Compiled and green on 16 November 2026 after the merge (`mvn test`, developer machine, 41 classes, 0 failures) |
-| Integration test (`AuthFlowIT`, Testcontainers) | Register → login → rotate → replay → logout against a real PostgreSQL with TLS | **Not yet run** |
-| Container build | The image builds and its unit tests pass | **Not yet run** |
+| Integration test (`AuthFlowIT`, Testcontainers) | Register → login → rotate → replay → logout against a real PostgreSQL with TLS | **Not yet run**: aborted with "Could not find a valid Docker environment" (no Docker socket in WSL) |
+| Jar packaging | `mvn verify` produced a runnable `fixloop-api-0.1.0-SNAPSHOT.jar` | Done on 16 November 2026 |
 | Smoke test (35 checks) | The wire contract of the identity endpoints | **Not yet run** against the merged code |
 | Database check | Hosted database reachable with verified TLS and the expected schema | Script written; **not yet run** |
 | Schema equivalence | Hosted schema versus `V1__init.sql` | Verified 4 November 2026 from the dashboard schema listing: same 13 tables and 107 columns |
