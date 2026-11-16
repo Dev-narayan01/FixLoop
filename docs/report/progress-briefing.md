@@ -1,75 +1,135 @@
-# Track C — platform and quality: where it stands
+# Track C — platform and quality: the specific version
 
-One page. Read the script out loud, then show the three screens listed at the bottom.
+Everything below is a fact in the repository, and each row names how to show it.
 
-## 1. What Track C owns
+## 0. One sentence
 
-The other two tracks build features: complaints and routing (Dushyant), the mobile app (Yash).
-Track C is what lets those features be **deployed, trusted and demonstrated**. Concretely:
+Track C owns the runnable API (Java 21, Spring Boot 3.5.16, Maven), its security layer, its
+test evidence, and the path from a laptop to a real PostgreSQL 17 database on Supabase.
 
-- the runnable API shell — configuration, health, error handling, OpenAPI contract;
-- the security layer — identity, sessions, upload safety, rate limits;
-- the quality evidence — automated tests and a written record of what is and is not verified;
-- the operational path — how the system reaches a real database and how it recovers from one.
+## 1. What exists, concretely
 
-Three decisions are recorded as ADRs so the reasoning survives after the marks are given:
-modular monolith over microservices, Spring Boot over the alternatives, and a local database
-next to the hosted one with the hosted one as the reference.
+### API surface — 12 documented endpoints (`docs/openapi/openapi.yaml`)
 
-## 2. What is built and proven
+| Group | Endpoints |
+|---|---|
+| Health | `GET /api/v1/health`, `GET /actuator/health` |
+| Identity | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/change-password`, `GET /me` |
+| Attachments | `POST /api/v1/attachments` |
+| Notifications | `GET /api/v1/notifications`, `POST /notifications/{id}/read`, `POST /notifications/read-all` |
 
-**Identity (D7) — complete.** Register, log in, `/me`, rotating refresh tokens, logout, and a
-JSON 401 instead of a default HTML error page. Passwords are hashed with BCrypt and screened
-by a policy test. Seven rate limits are enforced per route: registration 5 per hour, login 10
-per 5 minutes, refresh 60 per 5 minutes, logout 60 per 5 minutes, password change 10 per hour,
-photo upload 30 per 5 minutes, notification reads 120 per 5 minutes.
+The contract is the interface the mobile track codes against, so it is written before the
+client, not after.
 
-**Attachments — complete.** Complaint photographs are accepted only as JPEG/PNG, under the
-size cap, with the file type checked by content and not by name, stored under a generated
-name, and recorded with a SHA-256 checksum. A failed disk write produces a clean error
-instead of a stack trace.
+### Identity rules — each one is a test, not an intention
 
-**Notifications (G3) — complete.** The database already had an outbox table, so the inbox is
-built on it rather than beside it: every read is scoped to the signed-in user, reads are
-idempotent, and a foreign notification is a 404 rather than a 403 so it does not confirm that
-someone else's record exists.
+- **Registration is restricted to `bmu.edu.in`** addresses via `ALLOWED_EMAIL_DOMAINS`, so the
+  campus-only premise is enforced in code rather than in a policy document.
+- **Passwords**: minimum 12 characters, BCrypt's 72-byte ceiling enforced explicitly (BCrypt
+  silently truncates beyond it, which would make two different passwords equivalent), a
+  seven-entry common-password blocklist, and rejection of the user's own email or its local
+  part as the password.
+- **Tokens**: HS256-signed JWTs, `iss` is a URI (`https://fixloop.local`), access token 15
+  minutes, refresh token 14 days and **rotated on every use**. Sessions are stateless — no
+  server-side session, no CSRF token needed because nothing rides on a cookie.
+- **Failures are JSON, not HTML**: a custom `AuthenticationEntryPoint` returns the same error
+  shape as the rest of the API, which is what a mobile client can actually parse.
+- **Seven rate limits**, in-process, keyed by route and identity:
 
-**Automated tests — 57 unit tests, all green.** Thirteen test classes covering identity,
-attachments, notifications, the rate limiter, the health endpoint, and the configuration
-guards. The build compiles and produces a runnable jar.
+| Route | Limit |
+|---|---|
+| register | 5 / hour |
+| login | 10 / 5 min |
+| refresh | 60 / 5 min |
+| logout | 60 / 5 min |
+| change-password | 10 / hour |
+| attachment upload | 30 / 5 min |
+| notification reads | 120 / 5 min |
 
-**Deployment tooling.** A preflight check, a database check with 27 assertions (configuration,
-TLS, schema, safety), a backup-and-restore drill, and a runbook written so that someone who
-has never seen the project can bring it up.
+Known limitation, stated in the checklist: the limiter is in memory, so it is correct for one
+instance and would need Redis if the API were ever scaled out.
 
-## 3. What is not proven yet — say this plainly
+### Uploads — content-first, because the client can lie
 
-- **Integration tests do not run on my machine.** Two integration test classes are written
-  (ten methods). They need Docker, and Docker is not installed in the WSL environment I build
-  in. The failure is `Could not find a valid Docker environment` — an environment fault, not a
-  code fault, and it is recorded as such rather than reported as a pass.
-- **The hosted database check has not gone green.** It stopped at a placeholder in the local
-  `.env` file; the script has since been fixed to name the offending line, and the entry has
-  to be filled with the real project host before the check can run.
-- **Nothing raises a notification yet.** The inbox is built and tested; wiring it into the
-  complaint workflow is a separate, small change.
-- **Synthetic data (G4) has not started.** The generator file exists and is empty. Due 20 Nov.
+`AttachmentPolicy.inspect()` reads the bytes and detects JPEG, PNG or WebP by signature; the
+declared `Content-Type` is only cross-checked and a mismatch is rejected. An empty file is
+400, over the 8 MiB cap is 413, a non-photograph is 415. Stored files get a generated name and
+a SHA-256 checksum, and a failing disk write returns a clean error rather than a stack trace —
+`AttachmentServiceTest.reportsAFriendlyFailureWhenTheDiskRefusesTheWrite` asserts exactly that.
 
-## 4. The next four things
+### Notifications — built on the outbox table that already existed
 
-1. Fill the database entry, run the check, expect 0 failures.
-2. Turn on Docker's WSL integration, run the two integration classes.
-3. Run the backup-and-restore drill once and record the output.
-4. Write the synthetic-data generator for the routing evaluation, then wire notifications in.
+`IN_APP` rows are written `SENT`; `EMAIL` and `PUSH` rows are written `PENDING` and nothing
+drains them yet, because there are no mail or push credentials. Type is capped at 60
+characters, payload at 4096 bytes, list size defaults to 50 and is bounded at 100. `markRead`
+is idempotent, another user's notification id returns 404 rather than 403 (a 403 would confirm
+the row exists), and every query is scoped by `user_id`.
 
-## 5. Screens to show, in this order
+### Database
 
-1. **Terminal:** `mvn -B -ntp -f apps/api/pom.xml test | tail -5` — ends in
-   `Tests run: 57, Failures: 0, Errors: 0` and `BUILD SUCCESS`.
-2. **`docs/quality/security-checklist.md`** — the checklist with its four honest states:
-   done, open, unverified, not applicable. Point at the "unverified" rows; that is the point.
-3. **`docs/openapi/openapi.yaml`** — twelve endpoints on one contract, which is what the mobile
-   track codes against.
+Thirteen tables in `V1__init.sql` — `departments`, `locations`, `users`, `categories`,
+`status_transitions`, `routing_rules`, `sla_policies`, `settings`, `complaints`,
+`complaint_events`, `attachments`, `notifications_outbox`, `refresh_tokens` — 107 columns.
+A parse of the file was compared against the hosted database column by column and matched.
+`V2__attachments_checksum.sql` adds the nullable `attachments.checksum_sha256`; it is
+forward-only because V1 is already applied and is never edited.
 
-If asked "what would you do with more time": make the unverified rows verified, starting with
-the integration tests, because an unrun test is a claim, not evidence.
+`DatabaseConnectionSafety` refuses to start if the database connection does not use
+`sslmode=verify-full`, which is why the CA certificate path is part of `.env`.
+
+## 2. Evidence
+
+| Claim | How to show it |
+|---|---|
+| 57 unit tests pass | `mvn -B -ntp -f apps/api/pom.xml test` → `Tests run: 57, Failures: 0, Errors: 0` |
+| The artefact is deployable | `mvn -DskipTests package` → `apps/api/target/fixloop-api-0.1.0-SNAPSHOT.jar` |
+| Tests are distributed sensibly | 5 auth-security, 3 JWT, 7 password policy, 4 health, 4 rate limiter, 2 auth properties, 3 database safety, 1 database defaults, 5 notification security, 9 notification service, 2 attachment security, 6 attachment policy, 3 attachment service, 3 filesystem storage |
+| The database path is checkable | `bash infra/deploy/db-check.sh` — 27 assertions: config, CA certificate is real PEM, TLS, schema, no plaintext credentials |
+| Recovery is planned, not hoped for | `bash infra/deploy/backup-drill.sh` — dump the hosted database, restore into a throwaway container, compare |
+| Someone else could run it | `infra/deploy/RUNBOOK.md`, `infra/deploy/preflight.sh` |
+| Decisions are recorded | `docs/adr/ADR-001-modular-monolith.md`, `ADR-002-spring-boot.md`, `ADR-003-local-and-hosted-databases.md` |
+| Honesty is tracked | `docs/quality/security-checklist.md` — 52 items: 27 done, 6 unverified, 16 open, 3 not applicable |
+
+## 3. What is not proven — the exact state
+
+1. **Two integration classes, ten methods, do not run here.** `AuthFlowIT` and
+   `DatabaseMigrationIT` need Docker; Docker is absent from the WSL distribution, so Maven
+   fails with `Could not find a valid Docker environment` before any assertion executes.
+   Not a pass, not a failure — no result.
+2. **`db-check.sh` has never reached its summary line.** First run: the four database
+   variables were unset. Second run: `DATABASE_URL` still held the template's `<host>`, which
+   the shell earlier reported as `line 5: host: No such file or directory`. Both faults are
+   now reported by name by the script itself.
+3. **No production code raises a notification yet.** The inbox is complete and tested; the
+   caller does not exist. That is a deliberate boundary, not an omission.
+4. **Synthetic data (G4) is empty.** `data/synthetic/generate.py` and
+   `routing_test_set.csv` exist as zero-byte placeholders. Due 20 Nov.
+
+## 4. Next, in order
+
+1. Fill the real database host; expect `db-check.sh` to end with 0 failures.
+2. Enable Docker's WSL integration; the two integration classes then run in `mvn verify`.
+3. One recorded backup-restore drill.
+4. The synthetic-data generator, then wiring notifications into the complaint workflow.
+
+## 5. Answers to the questions that will be asked
+
+**"Why a monolith?"** ADR-001: one team, one deadline, one deployment. Service boundaries
+inside the code give the same discipline without the operational cost of a network between
+them.
+
+**"Why does a complaint system need rate limits?"** Registration is restricted to one email
+domain, so an attacker's cheapest move is password guessing against known accounts. Ten login
+attempts per five minutes per identity makes that impractical without harming a real user.
+
+**"What happens if the database goes away?"** The API fails health checks rather than serving
+inconsistent data, and the runbook's restore path is the backup drill — which is written and
+has to be run once, end to end, before I claim it works.
+
+**"What is the risk to the 28 Nov deadline?"** The only unverified item with schedule risk is
+the integration suite, and its blocker is a local Docker setting, not code. The synthetic data
+is the real work left.
+
+**"What would you do differently?"** Verification was batched behind the environment instead
+of being proven on the first day the database existed. The checklist now records 'unverified'
+separately from 'done' precisely so that gap cannot hide again.
