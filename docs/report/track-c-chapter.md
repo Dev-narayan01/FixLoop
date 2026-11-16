@@ -125,7 +125,7 @@ Three scripts and one runbook:
 
 | Level | What it proves | Status |
 |---|---|---|
-| Unit tests (14 classes, 53 tests) | Password policy, token claims, rotation logic, rate limiter, upload policy, path safety | Compiled and green on 2 November 2026 (`mvn test`, developer machine) |
+| Unit tests (16 classes, 57 tests executed) | Password policy, token claims, rotation logic, rate limiter, upload policy, path safety, notification scoping and inbox | Compiled and green on 16 November 2026 after the merge (`mvn test`, developer machine, 41 classes, 0 failures) |
 | Integration test (`AuthFlowIT`, Testcontainers) | Register → login → rotate → replay → logout against a real PostgreSQL with TLS | **Not yet run** |
 | Container build | The image builds and its unit tests pass | **Not yet run** |
 | Smoke test (35 checks) | The wire contract of the identity endpoints | **Not yet run** against the merged code |

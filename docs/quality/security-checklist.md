@@ -7,6 +7,10 @@ Status legend:
 - **OPEN** — not done yet; needs a fix or an accepted-risk line in the report
 - **N/A** — out of scope, stated deliberately
 
+Latest verification, 16 November 2026: `mvn -B -ntp -f apps/api/pom.xml test` on the
+merged branch — **57 tests, 0 failures, BUILD SUCCESS** (41 classes). The 10
+Testcontainers tests (`mvn verify`) have still not run.
+
 At G4 every **OPEN** row must become **DONE**, or be written into the report as an
 accepted risk with a reason. An unexamined checkbox is worse than an honest gap.
 
