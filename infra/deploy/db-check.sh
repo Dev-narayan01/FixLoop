@@ -44,17 +44,54 @@ summary() {
     exit 1
 }
 
+# Reads .env as data, line by line. It is never sourced: a malformed line must
+# produce a clear message rather than a shell error, and nothing in a
+# configuration file should be able to run a command.
+load_env() {
+    [ -f .env ] || return 1
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        case "$line" in
+            ''|'#'*) continue ;;
+        esac
+        case "$line" in
+            *=*) ;;
+            *) warn "Ignoring a line in .env that is not KEY=value"; continue ;;
+        esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="$(printf '%s' "$key" | tr -d '[:space:]')"
+        case "$key" in
+            ''|*[!A-Za-z0-9_]*) warn "Ignoring a .env key that is not a variable name"; continue ;;
+        esac
+        # Surrounding whitespace, then one layer of matching quotes.
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+        case "$value" in
+            \'*\') value="${value%\'}"; value="${value#\'}" ;;
+            \"*\") value="${value%\"}"; value="${value#\"}" ;;
+        esac
+        export "$key=$value"
+    done < .env
+    return 0
+}
+
 section "Configuration"
 
-if [ -f .env ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
+if load_env; then
     pass "Read .env"
 else
     warn "No .env in this directory; using environment variables as they are"
 fi
+
+# A connection string pasted from the dashboard's Connect panel is the most
+# common mistake here, and it leaves stray keys behind that nothing consumes.
+for stray in host dbname sslmode sslrootcert; do
+    if [ -n "$(eval "printf '%s' \"\${$stray:-}\"")" ]; then
+        warn "'.env' sets '$stray', which this API does not read: put the host, port and database in DATABASE_URL"
+    fi
+done
 
 missing=""
 for name in DATABASE_URL DATABASE_USER DATABASE_PASSWORD SUPABASE_CA_CERT_PATH; do

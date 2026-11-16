@@ -34,13 +34,42 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Reads .env as data, line by line. It is never sourced: a malformed line must
+# produce a clear message rather than a shell error, and nothing in a
+# configuration file should be able to run a command.
+load_env() {
+    [ -f .env ] || return 1
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        case "$line" in
+            ''|'#'*) continue ;;
+        esac
+        case "$line" in
+            *=*) ;;
+            *) warn "Ignoring a line in .env that is not KEY=value"; continue ;;
+        esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="$(printf '%s' "$key" | tr -d '[:space:]')"
+        case "$key" in
+            ''|*[!A-Za-z0-9_]*) warn "Ignoring a .env key that is not a variable name"; continue ;;
+        esac
+        # Surrounding whitespace, then one layer of matching quotes.
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+        case "$value" in
+            \'*\') value="${value%\'}"; value="${value#\'}" ;;
+            \"*\") value="${value%\"}"; value="${value#\"}" ;;
+        esac
+        export "$key=$value"
+    done < .env
+    return 0
+}
+
 info "Configuration"
 
-if [ -f .env ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . ./.env
-    set +a
+if load_env; then
     pass "Read .env"
 else
     warn "No .env in this directory; using environment variables as they are"
